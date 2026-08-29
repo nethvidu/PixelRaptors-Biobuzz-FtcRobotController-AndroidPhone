@@ -484,14 +484,31 @@ public class FtcRobotControllerActivity extends Activity
     AnnotatedHooksClassFilter.getInstance().callOnDestroyMethods(this);
   }
 
+  /** Whether we still want to be bound, so a deferred bind can be abandoned if we stop first. */
+  private volatile boolean bindRequested = false;
+
   protected void bindToService() {
     readNetworkType();
-    Intent intent = new Intent(this, FtcRobotControllerService.class);
+    final Intent intent = new Intent(this, FtcRobotControllerService.class);
     intent.putExtra(NetworkConnectionFactory.NETWORK_CONNECTION_TYPE, networkType);
-    serviceShouldUnbind = bindService(intent, connection, Context.BIND_AUTO_CREATE);
+    bindRequested = true;
+
+    // Clear any Wi-Fi Direct group left behind by a previous robot controller process before the
+    // service comes up; otherwise the SDK's createGroup() returns BUSY and gives up, and the driver
+    // station connects slowly or not at all. See StaleWifiDirectGroupCleaner.
+    StaleWifiDirectGroupCleaner.clearThenRun(this, new StaleWifiDirectGroupCleaner.Continuation() {
+      @Override public void proceed() {
+        if (!bindRequested) {
+          RobotLog.vv(TAG, "no longer want to be bound; abandoning deferred bindService()");
+          return;
+        }
+        serviceShouldUnbind = bindService(intent, connection, Context.BIND_AUTO_CREATE);
+      }
+    });
   }
 
   protected void unbindFromService() {
+    bindRequested = false;
     if (serviceShouldUnbind) {
       unbindService(connection);
       serviceShouldUnbind = false;
