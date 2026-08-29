@@ -23,7 +23,13 @@ public class StaleWifiDirectGroupCleaner {
      */
     private static final long SETTLE_MS = 750;
 
-    private static final AtomicBoolean hasRunThisProcess = new AtomicBoolean(false);
+    /**
+     * Guards against a second cleanup starting while one is still in flight. This is
+     * deliberately not a run-once-per-process latch: the activity is recreated several
+     * times within a single process, and each recreation rebinds the service and hits
+     * createGroup() again, so every bind needs its own check for a leftover group.
+     */
+    private static final AtomicBoolean inFlight = new AtomicBoolean(false);
 
     public interface Continuation {
         void proceed();
@@ -41,7 +47,8 @@ public class StaleWifiDirectGroupCleaner {
      * exactly once either way.
      */
     public static void clearThenRun(Context context, final Continuation continuation) {
-        if (!hasRunThisProcess.compareAndSet(false, true)) {
+        if (!inFlight.compareAndSet(false, true)) {
+            RobotLog.vv(TAG, "a stale group check is already in flight; not starting another");
             continuation.proceed();
             return;
         }
@@ -49,6 +56,7 @@ public class StaleWifiDirectGroupCleaner {
         final WifiP2pManager manager = (WifiP2pManager) context.getSystemService(Context.WIFI_P2P_SERVICE);
         if (manager == null) {
             RobotLog.vv(TAG, "no WifiP2pManager; skipping stale group check");
+            inFlight.set(false);
             continuation.proceed();
             return;
         }
@@ -56,6 +64,7 @@ public class StaleWifiDirectGroupCleaner {
         final WifiP2pManager.Channel channel = manager.initialize(context, Looper.getMainLooper(), null);
         if (channel == null) {
             RobotLog.vv(TAG, "could not initialize a Wi-Fi Direct channel; skipping stale group check");
+            inFlight.set(false);
             continuation.proceed();
             return;
         }
@@ -68,6 +77,7 @@ public class StaleWifiDirectGroupCleaner {
             public void run() {
                 if (finished.compareAndSet(false, true)) {
                     closeChannel(channel);
+                    inFlight.set(false);
                     continuation.proceed();
                 }
             }
