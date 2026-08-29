@@ -13,6 +13,11 @@ Unlike a Control Hub setup, this project runs the Robot Controller app on an
 
 We are using a **Samsung Galaxy S21 Ultra** Robot Controller on a starter SWYFT drivetrain
 
+<p align="center">
+  <img src="doc/media/AndroidS21FTCDrivetrain.jpg" width="700"
+       alt="Biobuzz SWYFT drivetrain with the Samsung Galaxy S21 Ultra mounted as Robot Controller, REV Expansion Hub, four mecanum wheels and a 12 V battery">
+</p>
+
 Motor names expected in the robot configuration:
 `front_left_drive`, `front_right_drive`, `back_left_drive`, `back_right_drive`
 (left-side motors are set to `REVERSE` in code).
