@@ -132,6 +132,7 @@ import java.io.FileNotFoundException;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @SuppressWarnings("WeakerAccess")
 public class FtcRobotControllerActivity extends Activity
@@ -180,6 +181,15 @@ public class FtcRobotControllerActivity extends Activity
   protected MotionDetection motionDetection;
 
   private static boolean permissionsValidated = false;
+
+  /**
+   * ClassManagerFactory.registerFilters()/processAllClasses() below must run exactly once
+   * per process: registerFilters() throws if it is called again after processAllClasses()
+   * has already run. onCreate() can fire more than once on the same app instance (see the
+   * "robustify against onCreate() following onDestroy()" comment above), so guard against
+   * re-registering on a later onCreate().
+   */
+  private static final AtomicBoolean classFiltersRegistered = new AtomicBoolean(false);
 
   private WifiDirectChannelChanger wifiDirectChannelChanger;
 
@@ -352,8 +362,10 @@ public class FtcRobotControllerActivity extends Activity
      */
     if (permissionsValidated) {
       ClassManager.getInstance().setOnBotJavaClassHelper(onBotJavaHelper);
-      ClassManagerFactory.registerFilters();
-      ClassManagerFactory.processAllClasses();
+      if (classFiltersRegistered.compareAndSet(false, true)) {
+        ClassManagerFactory.registerFilters();
+        ClassManagerFactory.processAllClasses();
+      }
     }
 
     cfgFileMgr = new RobotConfigFileManager(this);
