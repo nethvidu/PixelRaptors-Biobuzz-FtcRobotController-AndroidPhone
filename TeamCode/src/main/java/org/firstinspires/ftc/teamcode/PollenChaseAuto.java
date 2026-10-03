@@ -60,14 +60,16 @@ public class PollenChaseAuto extends LinearOpMode {
     static final boolean PHONE_PORTRAIT = true;
 
     // ---- Driving tuning ----
-    static final double DRIVE_POWER = 0.35;
+    static final double DRIVE_POWER = 0.5;
     static final double TURN_SIGN = 1;
-    static final double MIN_DRIVE_POWER = 0.2;
+    static final double MIN_DRIVE_POWER = 0.38;
     static final double TURN_GAIN = 0.2;
     static final double MAX_TURN_POWER = 0.35;
     static final double CENTER_TOLERANCE = 0.12;
+    static final double TURN_DEADBAND = 0.08;       // no steering when the ball is this close to center
+    static final double SMOOTHING = 0.35;           // weight of the newest frame (lower = smoother, laggier)
     static final double SEARCH_TURN_POWER = 0.2;
-    static final double SLOW_DOWN_DISTANCE_CM = 70;
+    static final double SLOW_DOWN_DISTANCE_CM =30;
     static final long SEARCH_TIMEOUT_MS = 15000;
 
     // ---- Touching a ball ----
@@ -140,6 +142,8 @@ public class PollenChaseAuto extends LinearOpMode {
         // instead of re-picking every frame, so the robot does not zig-zag between balls.
         String lockedColor = null;
         double lockedX = 0, lockedY = 0;
+        double smoothErr = 0, smoothDist = 0;   // low-pass filtered steering error and distance
+        long lastChaseFrame = 0;
 
         while (opModeIsActive()) {
             reportBestBlob("RED", redLocator);
@@ -203,7 +207,18 @@ public class PollenChaseAuto extends LinearOpMode {
                 lockedX = target.circle.getX();
                 lockedY = target.circle.getY();
 
-                double xError = steeringError(target.circle);
+                long now = System.currentTimeMillis();
+                double rawError = steeringError(target.circle);
+                double rawDist = target.distanceCm;
+                if (now - lastChaseFrame > 300) {   // fresh target: start the filter here
+                    smoothErr = rawError;
+                    smoothDist = rawDist;
+                } else {
+                    smoothErr += SMOOTHING * (rawError - smoothErr);
+                    smoothDist += SMOOTHING * (rawDist - smoothDist);
+                }
+                lastChaseFrame = now;
+                double xError = smoothErr;
 
                 telemetry.addData("chasing", "%s x=%d y=%d radius=%d",
                         target.color, (int) lockedX, (int) lockedY, (int) target.circle.getRadius());
@@ -223,8 +238,9 @@ public class PollenChaseAuto extends LinearOpMode {
                     continue;
                 }
 
-                double turn = TURN_SIGN * clip(xError * TURN_GAIN, MAX_TURN_POWER);
-                double distScale = Math.min(1.0, (target.distanceCm - HANDOFF_DISTANCE_CM)
+                double turn = Math.abs(xError) < TURN_DEADBAND
+                        ? 0 : TURN_SIGN * clip(xError * TURN_GAIN, MAX_TURN_POWER);
+                double distScale = Math.min(1.0, Math.max(0, smoothDist - HANDOFF_DISTANCE_CM)
                         / (SLOW_DOWN_DISTANCE_CM - HANDOFF_DISTANCE_CM));
                 double alignScale = Math.max(0.3, 1.0 - Math.abs(xError));
                 double forward = Math.max(MIN_DRIVE_POWER, DRIVE_POWER * distScale * alignScale);
