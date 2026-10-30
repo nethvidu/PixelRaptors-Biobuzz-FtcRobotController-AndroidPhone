@@ -13,7 +13,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.utils.ShooterPIDF;
 
 /**
- * Live PID tuning for shooter1 + motor2 through FTC Dashboard (http://192.168.43.1:8080/dash while
+ * Live PID tuning for shooter1 + shooter2 through FTC Dashboard (http://192.168.43.1:8080/dash while
  * connected to the Control Hub's Wi-Fi). Edit the fields below in the Dashboard's Configuration tab;
  * they apply immediately. Graph TargetVel / CurrentVel / OutputPower in the Dashboard's graph.
  *
@@ -43,7 +43,7 @@ public class shooterDashboardTune extends OpMode {
     private ShooterPIDF controller;
     private FtcDashboard dashboard;
     private DcMotorEx shooter;
-    private DcMotorEx motor2;
+    private DcMotorEx shooter2;
     private DcMotorEx intake;
     private boolean lastUp, lastDown, lastRight, lastLeft;
     private double intakeIntegral = 0;
@@ -52,15 +52,15 @@ public class shooterDashboardTune extends OpMode {
     @Override
     public void init() {
         shooter = hardwareMap.get(DcMotorEx.class, "shooter1");
-        motor2 = hardwareMap.get(DcMotorEx.class, "motor2");
+        shooter2 = hardwareMap.get(DcMotorEx.class, "shooter2");
         shooter.setDirection(DcMotorSimple.Direction.REVERSE);
-        motor2.setDirection(DcMotorSimple.Direction.FORWARD);
+        shooter2.setDirection(DcMotorSimple.Direction.FORWARD);
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);   // encoder still readable
-        motor2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         // FLOAT: let the flywheel coast down instead of braking.
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        motor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         intake = hardwareMap.get(DcMotorEx.class, "intake");
         intake.setDirection(motorTest.CCW_DIRECTION);
@@ -112,7 +112,7 @@ public class shooterDashboardTune extends OpMode {
             controller.reset();   // power 0 with FLOAT: coast
         }
         shooter.setPower(power);
-        motor2.setPower(power);
+        shooter2.setPower(power);
 
         telemetry.addData("Target RPM", "%.0f", targetRpm);
         telemetry.addData("Actual RPM", "%.1f", rpm);
@@ -135,7 +135,7 @@ public class shooterDashboardTune extends OpMode {
     @Override
     public void stop() {
         shooter.setPower(0);
-        motor2.setPower(0);
+        shooter2.setPower(0);
         intake.setPower(0);
     }
 }

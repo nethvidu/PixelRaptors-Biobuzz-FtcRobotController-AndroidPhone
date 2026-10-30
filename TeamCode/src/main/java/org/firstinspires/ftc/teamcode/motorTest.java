@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 
@@ -36,12 +37,15 @@ public class motorTest extends LinearOpMode {
     static final double SHOOTER_kF = 32767.0 / (SHOOTER_MAX_RPM * SHOOTER_TICKS_PER_REV / 60.0);
     private static final double RPM_STEP = 100;
 
-    // Flip to REVERSE if motor2 spins the wrong way for how it's mounted.
-    private static final DcMotorSimple.Direction MOTOR2_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    // shooter1 and motor2 are driven with the same power from one software copy of the tuned shooter PIDF
+    // Flip to REVERSE if shooter2 spins the wrong way for how it's mounted.
+    private static final DcMotorSimple.Direction SHOOTER2_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    // shooter1 and shooter2 are driven with the same power from one software copy of the tuned shooter PIDF
     // (SHOOTER_kP/kI/kD/kF, hub units: output 32767 = full power, error in ticks/sec), fed by shooter1's
-    // encoder only. motor2's encoder is ignored.
+    // encoder only. shooter2's encoder is ignored.
     private static final double HUB_FULL_SCALE = 32767.0;
+
+    // Hood servo position change per A/B press (servo range is 0.0 - 1.0).
+    private static final double HOOD_STEP = 0.05;
 
     @Override
     public void runOpMode() {
@@ -58,15 +62,20 @@ public class motorTest extends LinearOpMode {
         shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);   // encoder still readable; power set below
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        // "motor2" must match the device name in your Robot Configuration.
-        // It gets the same power as shooter1 (motor2's encoder is ignored).
-        DcMotorEx motor2 = hardwareMap.get(DcMotorEx.class, "motor2");
-        motor2.setDirection(MOTOR2_DIRECTION);
-        motor2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        motor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        double motor2Integral = 0;
+        // "shooter2" must match the device name in your Robot Configuration.
+        // It gets the same power as shooter1 (shooter2's encoder is ignored).
+        DcMotorEx shooter2 = hardwareMap.get(DcMotorEx.class, "shooter2");
+        shooter2.setDirection(SHOOTER2_DIRECTION);
+        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        double shooter2Integral = 0;
         double lastErrTps = 0;
-        ElapsedTime motor2Timer = new ElapsedTime();
+        ElapsedTime shooter2Timer = new ElapsedTime();
+
+        // "hood" must match the servo name in your Robot Configuration. Starts at 0.
+        Servo hood = hardwareMap.get(Servo.class, "hood");
+        double hoodPosition = 0;
+        hood.setPosition(hoodPosition);
 
         double targetRpm = 0;
         double intakeTargetRpm = INTAKE_MAX_RPM;
@@ -76,8 +85,10 @@ public class motorTest extends LinearOpMode {
         boolean lastDown = false;
         boolean lastRight = false;
         boolean lastLeft = false;
+        boolean lastA = false;
+        boolean lastB = false;
 
-        telemetry.addLine("Ready - press START. D-pad up/down = shooter RPM, right/left = intake RPM");
+        telemetry.addLine("Ready - press START. D-pad up/down = shooter RPM, right/left = intake RPM, A/B = hood down/up");
         telemetry.update();
 
         waitForStart();
@@ -119,34 +130,46 @@ public class motorTest extends LinearOpMode {
             lastUp = gamepad1.dpad_up;
             lastDown = gamepad1.dpad_down;
 
+            // A/B: lower/raise the hood servo (one step per press)
+            if (gamepad1.a && !lastA) {
+                hoodPosition = Math.max(hoodPosition - HOOD_STEP, 0);
+            }
+            if (gamepad1.b && !lastB) {
+                hoodPosition = Math.min(hoodPosition + HOOD_STEP, 1);
+            }
+            lastA = gamepad1.a;
+            lastB = gamepad1.b;
+            hood.setPosition(hoodPosition);
+
             double shooterTps = shooter.getVelocity();
             double shooterRpm = shooterTps * 60.0 / SHOOTER_TICKS_PER_REV;
 
             // Tuned shooter PIDF run in software; the same power goes to both motors.
-            double dt2 = motor2Timer.seconds();
-            motor2Timer.reset();
+            double dt2 = shooter2Timer.seconds();
+            shooter2Timer.reset();
             double pairPower = 0;
             if (targetRpm > 0) {
                 double targetTps = targetRpm * SHOOTER_TICKS_PER_REV / 60.0;
                 double errTps = targetTps - shooterTps;
-                motor2Integral += errTps * dt2;
+                shooter2Integral += errTps * dt2;
                 double iLimit2 = 0.3 * HUB_FULL_SCALE / SHOOTER_kI;   // cap the I term at 30% power
-                motor2Integral = Math.max(-iLimit2, Math.min(iLimit2, motor2Integral));
+                shooter2Integral = Math.max(-iLimit2, Math.min(iLimit2, shooter2Integral));
                 double derivative = dt2 > 0 ? (errTps - lastErrTps) / dt2 : 0;
                 lastErrTps = errTps;
                 pairPower = (SHOOTER_kF * targetTps + SHOOTER_kP * errTps
-                        + SHOOTER_kI * motor2Integral + SHOOTER_kD * derivative) / HUB_FULL_SCALE;
+                        + SHOOTER_kI * shooter2Integral + SHOOTER_kD * derivative) / HUB_FULL_SCALE;
             } else {
-                motor2Integral = 0;   // power 0 with FLOAT: coast instead of braking
+                shooter2Integral = 0;   // power 0 with FLOAT: coast instead of braking
                 lastErrTps = 0;
             }
             pairPower = Math.max(0, Math.min(1, pairPower));
             shooter.setPower(pairPower);
-            motor2.setPower(pairPower);
+            shooter2.setPower(pairPower);
 
             telemetry.addData("Shooter target RPM", "%.0f", targetRpm);
             telemetry.addData("Shooter actual RPM", "%.1f", shooterRpm);
             telemetry.addData("Power (both motors)", "%.3f", pairPower);
+            telemetry.addData("Hood position", "%.2f", hoodPosition);
 
             double ticksPerSec = INTAKE_ENCODER_SIGN * motor.getVelocity();
             double rpm = intakeRpm;
@@ -164,6 +187,6 @@ public class motorTest extends LinearOpMode {
 
         motor.setPower(0);
         shooter.setPower(0);
-        motor2.setPower(0);
+        shooter2.setPower(0);
     }
 }

@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 
 /**
- * Runs shooter1 + motor2 with the tuned shooter PID (same control as motorTest) and logs the PID
+ * Runs shooter1 + shooter2 with the tuned shooter PID (same control as motorTest) and logs the PID
  * response to logcat while you feed balls through. Read with:  adb logcat -s ShooterLog
  *
  *   D-pad up/down : shooter target RPM (+/- 100)
@@ -39,10 +39,10 @@ public class shooterLog extends LinearOpMode {
         shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        DcMotorEx motor2 = hardwareMap.get(DcMotorEx.class, "motor2");
-        motor2.setDirection(DcMotorSimple.Direction.FORWARD);
-        motor2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        motor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        DcMotorEx shooter2 = hardwareMap.get(DcMotorEx.class, "shooter2");
+        shooter2.setDirection(DcMotorSimple.Direction.FORWARD);
+        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         double targetRpm = 0;
         double integral = 0;
@@ -108,7 +108,7 @@ public class shooterLog extends LinearOpMode {
             }
             power = Math.max(0, Math.min(1, power));
             shooter.setPower(power);
-            motor2.setPower(power);
+            shooter2.setPower(power);
 
             if (logging) {
                 RobotLog.ii(TAG, "DATA t=%.3f target=%.0f actual=%.1f error=%.1f power=%.3f loadRpm=%.1f gainScale=%.2f",
@@ -126,6 +126,6 @@ public class shooterLog extends LinearOpMode {
 
         if (logging) RobotLog.ii(TAG, "LOG_STOP");
         shooter.setPower(0);
-        motor2.setPower(0);
+        shooter2.setPower(0);
     }
 }
