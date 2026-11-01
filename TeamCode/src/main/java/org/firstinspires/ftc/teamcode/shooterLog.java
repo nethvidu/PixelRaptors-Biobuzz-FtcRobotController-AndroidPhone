@@ -80,7 +80,7 @@ public class shooterLog extends LinearOpMode {
             // Same tuned PIDF as motorTest, run in software on shooter1's encoder, same power to both motors.
             double dt = loopTimer.seconds();
             loopTimer.reset();
-            double tps = shooter.getVelocity();
+            double tps = motorTest.SHOOTER_ENCODER_SIGN * shooter.getVelocity();
             double actualRpm = tps * 60.0 / motorTest.SHOOTER_TICKS_PER_REV;
             double power = 0;
             double errRpm = targetRpm - actualRpm;

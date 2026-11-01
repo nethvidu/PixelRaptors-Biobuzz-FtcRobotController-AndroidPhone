@@ -99,7 +99,7 @@ public class shooterDashboardTune extends OpMode {
         intakePower = Math.max(0, Math.min(1, intakePower));
         intake.setPower(intakePower);
 
-        velocity = shooter.getVelocity();   // shooter1's encoder only
+        velocity = motorTest.SHOOTER_ENCODER_SIGN * shooter.getVelocity();   // shooter1's encoder only
         double rpm = velocity * 60.0 / motorTest.SHOOTER_TICKS_PER_REV;
         targetVelocity = targetRpm * motorTest.SHOOTER_TICKS_PER_REV / 60.0;
 

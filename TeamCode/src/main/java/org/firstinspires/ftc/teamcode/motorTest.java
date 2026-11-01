@@ -15,10 +15,9 @@ public class motorTest extends LinearOpMode {
 
     static final DcMotorSimple.Direction CCW_DIRECTION = DcMotorSimple.Direction.FORWARD;
     static final double INTAKE_MAX_RPM = 5000;
-    // The intake's encoder counts opposite to its drive direction (log: +power, negative velocity), which
-    // makes the hub's built-in velocity PID run away. So the intake uses its own PI loop in software,
-    // with the encoder sign flipped. If you fix the encoder wiring, set the sign to 1.
-    static final double INTAKE_ENCODER_SIGN = -1;
+    // The intake uses its own PI loop in software. With the encoder wire now connected it counts in the
+    // drive direction (sign 1). If actual RPM reads negative while the target is positive, set it to -1.
+    static final double INTAKE_ENCODER_SIGN = 1;
     static final double INTAKE_FULL_POWER_RPM = 6000;   // measured: ~0.93 power gave ~5600 RPM
     static final double INTAKE_kP = 0.0002;             // power per RPM of error
     static final double INTAKE_kI = 0.0004;             // power per RPM*second of error
@@ -31,6 +30,8 @@ public class motorTest extends LinearOpMode {
     // values come from the Shooter PID Tune auto-tune run (best of 8 trials) - adjust while watching target vs actual RPM.
     static final double SHOOTER_TICKS_PER_REV = 28;
     static final double SHOOTER_MAX_RPM = 5300;
+    // shooter1's encoder counts opposite to its drive direction (actual RPM read negative). Set to 1 if fixed.
+    static final double SHOOTER_ENCODER_SIGN = -1;
     static final double SHOOTER_kP = 50.0;
     static final double SHOOTER_kI = 0.5;
     static final double SHOOTER_kD = 0.0;
@@ -141,7 +142,7 @@ public class motorTest extends LinearOpMode {
             lastB = gamepad1.b;
             hood.setPosition(hoodPosition);
 
-            double shooterTps = shooter.getVelocity();
+            double shooterTps = SHOOTER_ENCODER_SIGN * shooter.getVelocity();
             double shooterRpm = shooterTps * 60.0 / SHOOTER_TICKS_PER_REV;
 
             // Tuned shooter PIDF run in software; the same power goes to both motors.
