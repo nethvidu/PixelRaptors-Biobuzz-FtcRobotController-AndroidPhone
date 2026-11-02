@@ -2,6 +2,7 @@ repositories {
     mavenCentral()
     google() // Needed for androidx
     maven { url = 'https://maven.brott.dev/' } // FTC Dashboard
+    maven { url = "https://mymaven.bylazar.com/releases" } // for Pedro Pathing
 }
 
 dependencies {
@@ -17,5 +18,8 @@ dependencies {
 
     // FTC Dashboard: live PID gain tuning and graphing
     implementation 'com.acmerobotics.dashboard:dashboard:0.6.0'
+
+    // Pedro Pathing: follower/localization (same version as EuropePremierEventRobot)
+    implementation 'com.pedropathing:ftc:2.1.2'
 }
 
