@@ -12,11 +12,13 @@ import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 
 /**
  * Operates the shooter (shooter1 + shooter2), hood servo and intake, using the same control and
- * tuning constants as motorTest. Everything starts stopped, hood at 0.
+ * tuning constants as motorTest. Everything starts stopped, hood at 0, door closed.
  *   D-pad up/down    = shooter RPM
  *   D-pad right/left = intake RPM
- *   A / B            = hood down / up
- *   X                = stop shooter and intake
+ *   LB / RB          = hood down / up
+ *   Y                = toggle door open / closed
+ *   X / B            = door close position down / up (fine adjust)
+ *   A                = stop shooter and intake
  */
 @TeleOp(name = "Shooter Hood Intake", group = "Test")
 public class shooterHoodIntake extends LinearOpMode {
@@ -24,6 +26,9 @@ public class shooterHoodIntake extends LinearOpMode {
     private static final double SHOOTER_RPM_STEP = 100;
     private static final double INTAKE_RPM_STEP = 100;
     private static final double HOOD_STEP = 0.05;
+    private static final double DOOR_OPEN = 0.19;
+    private static final double DOOR_CLOSED = 0.46;
+    private static final double DOOR_CLOSED_STEP = 0.01;
     private static final double HUB_FULL_SCALE = 32767.0;
 
     @Override
@@ -52,6 +57,11 @@ public class shooterHoodIntake extends LinearOpMode {
         double hoodPosition = 0;
         hood.setPosition(hoodPosition);
 
+        Servo door = hardwareMap.get(Servo.class, "door");
+        boolean doorOpen = false;
+        double doorClosed = DOOR_CLOSED;
+        door.setPosition(doorClosed);
+
         double shooterTargetRpm = 0;
         double shooterIntegral = 0;
         double lastErrTps = 0;
@@ -60,9 +70,9 @@ public class shooterHoodIntake extends LinearOpMode {
         ElapsedTime loopTimer = new ElapsedTime();
 
         boolean lastUp = false, lastDown = false, lastRight = false, lastLeft = false;
-        boolean lastA = false, lastB = false;
+        boolean lastLB = false, lastRB = false, lastX = false, lastB = false, lastY = false;
 
-        telemetry.addLine("Ready - D-pad up/down = shooter, right/left = intake, A/B = hood, X = stop");
+        telemetry.addLine("Ready - D-pad up/down = shooter, right/left = intake, LB/RB = hood, Y = door, X/B = door close adjust, A = stop");
         telemetry.update();
 
         waitForStart();
@@ -82,13 +92,22 @@ public class shooterHoodIntake extends LinearOpMode {
             if (gamepad1.dpad_left && !lastLeft) {
                 intakeTargetRpm = Math.max(intakeTargetRpm - INTAKE_RPM_STEP, 0);
             }
-            if (gamepad1.a && !lastA) {
+            if (gamepad1.left_bumper && !lastLB) {
                 hoodPosition = Math.max(hoodPosition - HOOD_STEP, 0);
             }
-            if (gamepad1.b && !lastB) {
+            if (gamepad1.right_bumper && !lastRB) {
                 hoodPosition = Math.min(hoodPosition + HOOD_STEP, 1);
             }
-            if (gamepad1.x) {
+            if (gamepad1.x && !lastX) {
+                doorClosed = Math.max(doorClosed - DOOR_CLOSED_STEP, 0);
+            }
+            if (gamepad1.b && !lastB) {
+                doorClosed = Math.min(doorClosed + DOOR_CLOSED_STEP, 1);
+            }
+            if (gamepad1.y && !lastY) {
+                doorOpen = !doorOpen;
+            }
+            if (gamepad1.a) {
                 shooterTargetRpm = 0;
                 intakeTargetRpm = 0;
             }
@@ -96,8 +115,11 @@ public class shooterHoodIntake extends LinearOpMode {
             lastDown = gamepad1.dpad_down;
             lastRight = gamepad1.dpad_right;
             lastLeft = gamepad1.dpad_left;
-            lastA = gamepad1.a;
+            lastLB = gamepad1.left_bumper;
+            lastRB = gamepad1.right_bumper;
+            lastX = gamepad1.x;
             lastB = gamepad1.b;
+            lastY = gamepad1.y;
 
             double dt = loopTimer.seconds();
             loopTimer.reset();
@@ -143,6 +165,9 @@ public class shooterHoodIntake extends LinearOpMode {
             // --- Hood ---
             hood.setPosition(hoodPosition);
 
+            // --- Door ---
+            door.setPosition(doorOpen ? DOOR_OPEN : doorClosed);
+
             telemetry.addData("Shooter target RPM", "%.0f", shooterTargetRpm);
             telemetry.addData("Shooter actual RPM", "%.1f", shooterRpm);
             telemetry.addData("Shooter power", "%.3f", shooterPower);
@@ -150,6 +175,8 @@ public class shooterHoodIntake extends LinearOpMode {
             telemetry.addData("Intake actual RPM", "%.1f", intakeRpm);
             telemetry.addData("Intake current (A)", "%.2f", intake.getCurrent(CurrentUnit.AMPS));
             telemetry.addData("Hood position", "%.2f", hoodPosition);
+            telemetry.addData("Door", doorOpen ? "OPEN" : "CLOSED");
+            telemetry.addData("Door close position", "%.2f", doorClosed);
             telemetry.update();
         }
 
